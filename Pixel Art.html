@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Pixel Artboard</title>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+
+        body {
+            background-color: #2c3e50;
+            color: #ecf0f1;
+            font-family: 'Press Start 2P', cursive;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        .container {
+            background-color: #34495e;
+            padding: 20px;
+            border: 4px solid #f39c12;
+            box-shadow: 8px 8px 0px 0px #e67e22;
+            border-radius: 8px;
+            text-align: center;
+            max-width: 90%;
+        }
+
+        h1 {
+            font-size: 1.5rem;
+            text-shadow: 2px 2px #c0392b;
+            color: #e74c3c;
+            margin-bottom: 15px;
+        }
+
+        p {
+            font-size: 0.8rem;
+            margin-bottom: 20px;
+        }
+
+        canvas {
+            border: 2px solid #bdc3c7;
+            background-color: #ecf0f1;
+            image-rendering: pixelated;
+            cursor: pointer;
+            width: 100%;
+            max-width: 500px;
+            height: auto;
+            aspect-ratio: 1 / 1;
+        }
+
+        .controls {
+            margin-top: 15px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 15px;
+        }
+
+        .button-row {
+            display: flex;
+            flex-wrap: wrap;
+            justify-content: center;
+            gap: 8px;
+        }
+
+        .color-palette {
+            display: grid;
+            grid-template-columns: repeat(8, 1fr);
+            gap: 8px;
+            max-width: 100%;
+            justify-items: center;
+            width: 100%;
+        }
+
+        .btn, .color-btn {
+            font-family: 'Press Start 2P', cursive;
+            font-size: clamp(0.5rem, 2vw, 0.7rem);
+            padding: clamp(8px, 2vw, 12px) clamp(12px, 3vw, 18px);
+            border: 3px solid #7f8c8d;
+            background-color: #95a5a6;
+            color: #2c3e50;
+            cursor: pointer;
+            box-shadow: 4px 4px 0px 0px #7f8c8d;
+            transition: all 0.1s ease;
+            text-transform: uppercase;
+            white-space: nowrap;
+        }
+
+        .btn:active, .color-btn:active {
+            box-shadow: 0px 0px 0px 0px #7f8c8d;
+            transform: translate(4px, 4px);
+        }
+
+        .color-btn {
+            width: clamp(30px, 8vw, 40px);
+            height: clamp(30px, 8vw, 40px);
+            border-radius: 0;
+            padding: 0;
+            box-shadow: 3px 3px 0px 0px #7f8c8d;
+            min-width: 30px;
+            min-height: 30px;
+        }
+        .color-btn:active {
+            box-shadow: 0px 0px 0px 0px #7f8c8d;
+            transform: translate(3px, 3px);
+        }
+
+        .color-btn.active {
+            border-color: #f39c12;
+            box-shadow: 3px 3px 0px 0px #f39c12;
+            transform: translate(-1px, -1px);
+        }
+        
+        #red { background-color: #e74c3c; }
+        #blue { background-color: #3498db; }
+        #green { background-color: #2ecc71; }
+        #yellow { background-color: #f1c40f; }
+        #black { background-color: #2c3e50; }
+        #white { background-color: #ecf0f1; }
+        #orange { background-color: #e67e22; }
+        #purple { background-color: #9b59b6; }
+        #pink { background-color: #e91e63; }
+        #cyan { background-color: #1abc9c; }
+        #lime { background-color: #8bc34a; }
+        #brown { background-color: #795548; }
+        #indigo { background-color: #3f51b5; }
+        #teal { background-color: #009688; }
+        #amber { background-color: #ffc107; }
+        #gray { background-color: #607d8b; }
+
+        @media (max-width: 768px) {
+            body { padding: 10px; }
+            .container { padding: 10px; border-width: 2px; }
+            .button-row { gap: 6px; }
+            .color-palette { 
+                gap: 6px; 
+                grid-template-columns: repeat(8, 1fr);
+            }
+            .controls { gap: 10px; }
+        }
+
+        @media (max-width: 480px) {
+            body { padding: 5px; }
+            .container { padding: 8px; }
+            .button-row { gap: 4px; }
+            .color-palette { 
+                gap: 4px; 
+                grid-template-columns: repeat(4, 1fr);
+            }
+            .controls { gap: 8px; }
+        }
+
+        @media (orientation: landscape) and (max-height: 600px) {
+            body { 
+                flex-direction: row; 
+                align-items: flex-start; 
+                justify-content: center;
+                padding: 10px;
+            }
+            .container { max-width: none; }
+            canvas { max-width: min(45vw, 80vh); }
+        }
+
+        @media (max-width: 600px) {
+            h1 { font-size: 1.2rem; }
+            p { font-size: 0.7rem; }
+            .btn, .color-btn { font-size: 0.6rem; }
+            .controls { gap: 8px; }
+            .color-btn { width: 35px; height: 35px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h1>Pixel Artboard</h1>
+        <p>Click and drag on the canvas to mold your pixel creation!</p>
+        <canvas id="pixelCanvas"></canvas>
+        <div class="controls">
+            <div class="button-row">
+                <button id="resetBtn" class="btn">Reset</button>
+                <button id="saveBtn" class="btn">Save PNG</button>
+                <button id="copyBtn" class="btn">Copy</button>
+            </div>
+            <div class="color-palette">
+                <button id="red" class="color-btn"></button>
+                <button id="blue" class="color-btn"></button>
+                <button id="green" class="color-btn"></button>
+                <button id="yellow" class="color-btn"></button>
+                <button id="orange" class="color-btn"></button>
+                <button id="purple" class="color-btn"></button>
+                <button id="pink" class="color-btn"></button>
+                <button id="cyan" class="color-btn"></button>
+                <button id="lime" class="color-btn"></button>
+                <button id="brown" class="color-btn"></button>
+                <button id="indigo" class="color-btn"></button>
+                <button id="teal" class="color-btn"></button>
+                <button id="amber" class="color-btn"></button>
+                <button id="gray" class="color-btn"></button>
+                <button id="black" class="color-btn"></button>
+                <button id="white" class="color-btn"></button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        window.onload = function() {
+            // Get the canvas and its context
+            const canvas = document.getElementById('pixelCanvas');
+            const ctx = canvas.getContext('2d');
+
+            // Define the grid and pixel size
+            const gridSize = 32;
+            let pixelSize; // Initialize this later once canvas width is set
+            const colors = {
+                red: '#e74c3c',
+                blue: '#3498db',
+                green: '#2ecc71',
+                yellow: '#f1c40f',
+                black: '#2c3e50',
+                white: '#ecf0f1',
+                orange: '#e67e22',
+                purple: '#9b59b6',
+                pink: '#e91e63',
+                cyan: '#1abc9c',
+                lime: '#8bc34a',
+                brown: '#795548',
+                indigo: '#3f51b5',
+                teal: '#009688',
+                amber: '#ffc107',
+                gray: '#607d8b'
+            };
+
+            // State variables
+            let isDrawing = false;
+            let currentColor = colors.red;
+
+            // Set up a 2D array to represent our pixel grid
+            let pixelGrid = [];
+
+            // Function to initialize the grid
+            function initGrid() {
+                for (let i = 0; i < gridSize; i++) {
+                    pixelGrid[i] = [];
+                    for (let j = 0; j < gridSize; j++) {
+                        pixelGrid[i][j] = colors.white; // Default color
+                    }
+                }
+                drawGrid();
+            }
+
+            // Function to draw the grid on the canvas
+            function drawGrid() {
+                // Clear the canvas
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                pixelSize = canvas.width / gridSize; // Calculate pixelSize after canvas width is determined
+                
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        ctx.fillStyle = pixelGrid[i][j];
+                        ctx.fillRect(j * pixelSize, i * pixelSize, pixelSize, pixelSize);
+                    }
+                }
+            }
+
+            // Function to handle resizing the canvas
+            function resizeCanvas() {
+                const container = canvas.parentElement;
+                const size = Math.min(container.clientWidth, 500);
+                canvas.width = size;
+                canvas.height = size;
+                drawGrid(); // Redraw the grid after resizing
+            }
+
+            // Function to handle mouse/touch events
+            function handleDraw(event) {
+                // Get the coordinates relative to the canvas
+                const rect = canvas.getBoundingClientRect();
+                const scaleX = canvas.width / rect.width;
+                const scaleY = canvas.height / rect.height;
+                const clientX = event.clientX || event.touches[0].clientX;
+                const clientY = event.clientY || event.touches[0].clientY;
+                const x = (clientX - rect.left) * scaleX;
+                const y = (clientY - rect.top) * scaleY;
+
+                // Calculate which pixel was clicked
+                const pixelX = Math.floor(x / pixelSize);
+                const pixelY = Math.floor(y / pixelSize);
+
+                // Update the grid and redraw
+                if (pixelX >= 0 && pixelX < gridSize && pixelY >= 0 && pixelY < gridSize) {
+                    pixelGrid[pixelY][pixelX] = currentColor;
+                    drawGrid();
+                }
+            }
+
+            // Event listeners for mouse interaction
+            canvas.addEventListener('mousedown', (event) => {
+                isDrawing = true;
+                handleDraw(event);
+            });
+
+            canvas.addEventListener('mousemove', (event) => {
+                if (isDrawing) {
+                    handleDraw(event);
+                }
+            });
+
+            canvas.addEventListener('mouseup', () => {
+                isDrawing = false;
+            });
+
+            // Event listeners for touch interaction
+            canvas.addEventListener('touchstart', (event) => {
+                event.preventDefault(); // Prevent scrolling
+                isDrawing = true;
+                handleDraw(event);
+            });
+
+            canvas.addEventListener('touchmove', (event) => {
+                if (isDrawing) {
+                    event.preventDefault(); // Prevent scrolling
+                    handleDraw(event);
+                }
+            });
+
+            canvas.addEventListener('touchend', () => {
+                isDrawing = false;
+            });
+
+            // Event listener for the reset button
+            document.getElementById('resetBtn').addEventListener('click', initGrid);
+
+            // Event listener for the save button
+            document.getElementById('saveBtn').addEventListener('click', () => {
+                // Create a temporary canvas with high resolution for better quality
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // Set high resolution (each pixel becomes 16x16 for crisp output)
+                const scaleFactor = 16;
+                tempCanvas.width = gridSize * scaleFactor;
+                tempCanvas.height = gridSize * scaleFactor;
+                
+                // Disable image smoothing for crisp pixels
+                tempCtx.imageSmoothingEnabled = false;
+                
+                // Draw the pixel art on the temporary canvas
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        tempCtx.fillStyle = pixelGrid[i][j];
+                        tempCtx.fillRect(j * scaleFactor, i * scaleFactor, scaleFactor, scaleFactor);
+                    }
+                }
+                
+                // Create download link
+                const link = document.createElement('a');
+                link.download = 'pixel-art-' + new Date().getTime() + '.png';
+                link.href = tempCanvas.toDataURL('image/png');
+                
+                // Trigger download
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+            });
+
+            // Event listener for the copy button
+            document.getElementById('copyBtn').addEventListener('click', async () => {
+                try {
+                    // Create a temporary canvas with high resolution for better quality
+                    const tempCanvas = document.createElement('canvas');
+                    const tempCtx = tempCanvas.getContext('2d');
+                    
+                    // Set high resolution (each pixel becomes 16x16 for crisp output)
+                    const scaleFactor = 16;
+                    tempCanvas.width = gridSize * scaleFactor;
+                    tempCanvas.height = gridSize * scaleFactor;
+                    
+                    // Disable image smoothing for crisp pixels
+                    tempCtx.imageSmoothingEnabled = false;
+                    
+                    // Draw the pixel art on the temporary canvas
+                    for (let i = 0; i < gridSize; i++) {
+                        for (let j = 0; j < gridSize; j++) {
+                            tempCtx.fillStyle = pixelGrid[i][j];
+                            tempCtx.fillRect(j * scaleFactor, i * scaleFactor, scaleFactor, scaleFactor);
+                        }
+                    }
+                    
+                    // Convert canvas to blob
+                    tempCanvas.toBlob(async (blob) => {
+                        try {
+                            const item = new ClipboardItem({ 'image/png': blob });
+                            await navigator.clipboard.write([item]);
+                            
+                            // Visual feedback - temporarily change button text
+                            const copyBtn = document.getElementById('copyBtn');
+                            const originalText = copyBtn.textContent;
+                            copyBtn.textContent = 'Copied!';
+                            copyBtn.style.backgroundColor = '#2ecc71';
+                            
+                            setTimeout(() => {
+                                copyBtn.textContent = originalText;
+                                copyBtn.style.backgroundColor = '#95a5a6';
+                            }, 2000);
+                            
+                        } catch (err) {
+                            console.error('Failed to copy image to clipboard:', err);
+                            // Fallback: show alert
+                            alert('Copy failed. Try using the Save PNG button instead.');
+                        }
+                    }, 'image/png');
+                    
+                } catch (err) {
+                    console.error('Failed to create image:', err);
+                    alert('Copy failed. Try using the Save PNG button instead.');
+                }
+            });
+
+            // Event listener for color buttons
+            document.querySelector('.color-palette').addEventListener('click', (event) => {
+                // Check if the clicked element is a color button
+                const target = event.target;
+                if (target.classList.contains('color-btn')) {
+                    // Remove 'active' class from all color buttons
+                    document.querySelectorAll('.color-btn').forEach(btn => btn.classList.remove('active'));
+                    // Add 'active' class to the clicked button
+                    target.classList.add('active');
+                    // Update the current color
+                    currentColor = colors[target.id];
+                }
+            });
+            
+            // Set initial active color button
+            document.getElementById('red').classList.add('active');
+
+            // --- Corrected logic start ---
+            // Initialize the grid first
+            initGrid();
+
+            // Then resize the canvas, which will call drawGrid again but now the array exists.
+            resizeCanvas();
+            // --- Corrected logic end ---
+
+            // Handle window resize
+            window.addEventListener('resize', resizeCanvas);
+        };
+    </script>
+</body>
+</html>
