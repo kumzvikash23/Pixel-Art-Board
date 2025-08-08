@@ -52,6 +52,69 @@
             max-width: 500px;
             height: auto;
             aspect-ratio: 1 / 1;
+            position: relative;
+        }
+
+        .canvas-container {
+            position: relative;
+            display: inline-block;
+        }
+
+        #overlayCanvas {
+            position: absolute;
+            top: 0;
+            left: 0;
+            border: 2px solid #bdc3c7;
+            pointer-events: none;
+            opacity: 0.5;
+            image-rendering: pixelated;
+        }
+
+        .resize-handle {
+            position: absolute;
+            width: 16px;
+            height: 16px;
+            background: #f39c12;
+            border: 3px solid #e67e22;
+            cursor: nw-resize;
+            display: none;
+            z-index: 1000;
+            border-radius: 3px;
+            box-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .resize-handle.active {
+            display: block;
+        }
+
+        .resize-handle:hover {
+            background: #e67e22;
+            transform: scale(1.2);
+            border-color: #d35400;
+        }
+
+        #resizeHandleTopLeft {
+            top: -8px;
+            left: -8px;
+            cursor: nw-resize;
+        }
+
+        #resizeHandleTopRight {
+            top: -8px;
+            right: -8px;
+            cursor: ne-resize;
+        }
+
+        #resizeHandleBottomLeft {
+            bottom: -8px;
+            left: -8px;
+            cursor: sw-resize;
+        }
+
+        #resizeHandleBottomRight {
+            bottom: -8px;
+            right: -8px;
+            cursor: se-resize;
         }
 
         .controls {
@@ -134,6 +197,36 @@
         #amber { background-color: #ffc107; }
         #gray { background-color: #607d8b; }
 
+        input[type="range"] {
+            -webkit-appearance: none;
+            appearance: none;
+            height: 6px;
+            background: #7f8c8d;
+            outline: none;
+            border-radius: 3px;
+            margin: 0 10px;
+        }
+
+        input[type="range"]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            appearance: none;
+            width: 16px;
+            height: 16px;
+            background: #f39c12;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #e67e22;
+        }
+
+        input[type="range"]::-moz-range-thumb {
+            width: 16px;
+            height: 16px;
+            background: #f39c12;
+            cursor: pointer;
+            border-radius: 50%;
+            border: 2px solid #e67e22;
+        }
+
         @media (max-width: 768px) {
             body { padding: 10px; }
             .container { padding: 10px; border-width: 2px; }
@@ -181,12 +274,28 @@
     <div class="container">
         <h1>Pixel Artboard</h1>
         <p>Click and drag on the canvas to mold your pixel creation!</p>
-        <canvas id="pixelCanvas"></canvas>
+        <div class="canvas-container">
+            <canvas id="pixelCanvas"></canvas>
+            <canvas id="overlayCanvas" style="display: none;"></canvas>
+            <div id="resizeHandleTopLeft" class="resize-handle"></div>
+            <div id="resizeHandleTopRight" class="resize-handle"></div>
+            <div id="resizeHandleBottomLeft" class="resize-handle"></div>
+            <div id="resizeHandleBottomRight" class="resize-handle"></div>
+        </div>
         <div class="controls">
             <div class="button-row">
                 <button id="resetBtn" class="btn">Reset</button>
                 <button id="saveBtn" class="btn">Save PNG</button>
                 <button id="copyBtn" class="btn">Copy</button>
+                <label for="imageInput" class="btn" style="cursor: pointer;">Import Image</label>
+                <input type="file" id="imageInput" accept="image/*" style="display: none;">
+                <button id="overlayBtn" class="btn" style="display: none;">Toggle Overlay</button>
+                <button id="convertBtn" class="btn" style="display: none;">Convert to Pixels</button>
+                <button id="resizeBtn" class="btn" style="display: none;">Resize Mode</button>
+            </div>
+            <div class="button-row" id="overlayControls" style="display: none;">
+                <label for="opacitySlider" style="font-size: 0.6rem; color: #ecf0f1;">Opacity:</label>
+                <input type="range" id="opacitySlider" min="10" max="90" value="50" style="width: 100px;">
             </div>
             <div class="color-palette">
                 <button id="red" class="color-btn"></button>
@@ -214,6 +323,8 @@
             // Get the canvas and its context
             const canvas = document.getElementById('pixelCanvas');
             const ctx = canvas.getContext('2d');
+            const overlayCanvas = document.getElementById('overlayCanvas');
+            const overlayCtx = overlayCanvas.getContext('2d');
 
             // Define the grid and pixel size
             const gridSize = 32;
@@ -240,6 +351,14 @@
             // State variables
             let isDrawing = false;
             let currentColor = colors.red;
+            let importedImage = null;
+            let isOverlayVisible = false;
+            let isResizeMode = false;
+            let isResizing = false;
+            let resizeHandle = null;
+            let imageScale = 1;
+            let imageOffsetX = 0;
+            let imageOffsetY = 0;
 
             // Set up a 2D array to represent our pixel grid
             let pixelGrid = [];
@@ -275,7 +394,12 @@
                 const size = Math.min(container.clientWidth, 500);
                 canvas.width = size;
                 canvas.height = size;
+                overlayCanvas.width = size;
+                overlayCanvas.height = size;
                 drawGrid(); // Redraw the grid after resizing
+                if (importedImage && isOverlayVisible) {
+                    drawOverlay();
+                }
             }
 
             // Function to handle mouse/touch events
@@ -300,38 +424,214 @@
                 }
             }
 
+            // Function to get the closest color from our palette
+            function getClosestColor(r, g, b) {
+                let closestColor = colors.white;
+                let minDistance = Infinity;
+                
+                for (const colorName in colors) {
+                    const hex = colors[colorName];
+                    const colorR = parseInt(hex.substr(1, 2), 16);
+                    const colorG = parseInt(hex.substr(3, 2), 16);
+                    const colorB = parseInt(hex.substr(5, 2), 16);
+                    
+                    const distance = Math.sqrt(
+                        Math.pow(r - colorR, 2) + 
+                        Math.pow(g - colorG, 2) + 
+                        Math.pow(b - colorB, 2)
+                    );
+                    
+                    if (distance < minDistance) {
+                        minDistance = distance;
+                        closestColor = hex;
+                    }
+                }
+                
+                return closestColor;
+            }
+
+            // Function to convert image to pixel art
+            function convertImageToPixelArt(image) {
+                // Create a temporary canvas to work with the image
+                const tempCanvas = document.createElement('canvas');
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                tempCanvas.width = gridSize;
+                tempCanvas.height = gridSize;
+                
+                // Draw the image scaled to fit the grid
+                tempCtx.drawImage(image, 0, 0, gridSize, gridSize);
+                
+                // Get image data
+                const imageData = tempCtx.getImageData(0, 0, gridSize, gridSize);
+                const data = imageData.data;
+                
+                // Convert each pixel to the closest color in our palette
+                for (let i = 0; i < gridSize; i++) {
+                    for (let j = 0; j < gridSize; j++) {
+                        const index = (i * gridSize + j) * 4;
+                        const r = data[index];
+                        const g = data[index + 1];
+                        const b = data[index + 2];
+                        const alpha = data[index + 3];
+                        
+                        if (alpha > 128) { // If pixel is not transparent
+                            pixelGrid[i][j] = getClosestColor(r, g, b);
+                        } else {
+                            pixelGrid[i][j] = colors.white; // Transparent pixels become white
+                        }
+                    }
+                }
+                
+                drawGrid();
+            }
+
+            // Function to draw overlay image
+            function drawOverlay() {
+                if (!importedImage) return;
+                
+                overlayCtx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+                const opacity = document.getElementById('opacitySlider').value / 100;
+                overlayCtx.globalAlpha = opacity;
+                
+                const scaledWidth = overlayCanvas.width * imageScale;
+                const scaledHeight = overlayCanvas.height * imageScale;
+                const x = imageOffsetX;
+                const y = imageOffsetY;
+                
+                overlayCtx.drawImage(importedImage, x, y, scaledWidth, scaledHeight);
+                overlayCtx.globalAlpha = 1.0;
+            }
+
+            // Function to toggle resize mode
+            function toggleResizeMode() {
+                if (!importedImage) return;
+                
+                isResizeMode = !isResizeMode;
+                const handles = document.querySelectorAll('.resize-handle');
+                const resizeBtn = document.getElementById('resizeBtn');
+                
+                if (isResizeMode) {
+                    handles.forEach(handle => handle.classList.add('active'));
+                    overlayCanvas.style.pointerEvents = 'auto';
+                    resizeBtn.textContent = 'Exit Resize';
+                    resizeBtn.style.backgroundColor = '#e74c3c';
+                } else {
+                    handles.forEach(handle => handle.classList.remove('active'));
+                    overlayCanvas.style.pointerEvents = 'none';
+                    resizeBtn.textContent = 'Resize Mode';
+                    resizeBtn.style.backgroundColor = '#95a5a6';
+                }
+            }
+
+            // Function to handle resize operations
+            function handleResize(event) {
+                if (!isResizeMode || !isResizing || !resizeHandle) return;
+                
+                const rect = overlayCanvas.getBoundingClientRect();
+                const clientX = event.clientX || (event.touches && event.touches[0].clientX);
+                const clientY = event.clientY || (event.touches && event.touches[0].clientY);
+                
+                if (!clientX || !clientY) return;
+                
+                const x = clientX - rect.left;
+                const y = clientY - rect.top;
+                
+                // Calculate scale based on distance from center
+                const centerX = rect.width / 2;
+                const centerY = rect.height / 2;
+                
+                let newScale;
+                
+                if (resizeHandle === 'bottomRight') {
+                    // Scale up when dragging away from center
+                    const distanceX = Math.abs(x - centerX);
+                    const distanceY = Math.abs(y - centerY);
+                    const maxDistance = Math.max(distanceX, distanceY);
+                    newScale = Math.max(0.2, Math.min(3, maxDistance / (centerX * 0.8)));
+                } else if (resizeHandle === 'topLeft') {
+                    // Scale based on inverse distance
+                    const distanceX = Math.abs(x - centerX);
+                    const distanceY = Math.abs(y - centerY);
+                    const maxDistance = Math.max(distanceX, distanceY);
+                    newScale = Math.max(0.2, Math.min(3, (centerX * 0.8) / Math.max(1, maxDistance)));
+                }
+                
+                if (newScale && !isNaN(newScale)) {
+                    imageScale = newScale;
+                    
+                    // Center the image
+                    const scaledWidth = overlayCanvas.width * imageScale;
+                    const scaledHeight = overlayCanvas.height * imageScale;
+                    imageOffsetX = (overlayCanvas.width - scaledWidth) / 2;
+                    imageOffsetY = (overlayCanvas.height - scaledHeight) / 2;
+                    
+                    drawOverlay();
+                }
+            }
+
+            // Function to toggle overlay visibility
+            function toggleOverlay() {
+                if (!importedImage) return;
+                
+                isOverlayVisible = !isOverlayVisible;
+                
+                if (isOverlayVisible) {
+                    overlayCanvas.style.display = 'block';
+                    document.getElementById('overlayControls').style.display = 'flex';
+                    document.getElementById('resizeBtn').style.display = 'inline-block';
+                    drawOverlay();
+                    document.getElementById('overlayBtn').textContent = 'Hide Overlay';
+                } else {
+                    overlayCanvas.style.display = 'none';
+                    document.getElementById('overlayControls').style.display = 'none';
+                    document.getElementById('resizeBtn').style.display = 'none';
+                    // Exit resize mode if active
+                    if (isResizeMode) {
+                        toggleResizeMode();
+                    }
+                    document.getElementById('overlayBtn').textContent = 'Show Overlay';
+                }
+            }
+
             // Event listeners for mouse interaction
             canvas.addEventListener('mousedown', (event) => {
+                if (isResizeMode || isResizing) return; // Don't draw in resize mode
                 isDrawing = true;
                 handleDraw(event);
             });
 
             canvas.addEventListener('mousemove', (event) => {
-                if (isDrawing) {
+                if (isDrawing && !isResizeMode && !isResizing) {
                     handleDraw(event);
                 }
             });
 
             canvas.addEventListener('mouseup', () => {
-                isDrawing = false;
+                if (!isResizing) {
+                    isDrawing = false;
+                }
             });
 
             // Event listeners for touch interaction
             canvas.addEventListener('touchstart', (event) => {
                 event.preventDefault(); // Prevent scrolling
+                if (isResizeMode || isResizing) return; // Don't draw in resize mode
                 isDrawing = true;
                 handleDraw(event);
             });
 
             canvas.addEventListener('touchmove', (event) => {
-                if (isDrawing) {
+                if (isDrawing && !isResizeMode && !isResizing) {
                     event.preventDefault(); // Prevent scrolling
                     handleDraw(event);
                 }
             });
 
             canvas.addEventListener('touchend', () => {
-                isDrawing = false;
+                if (!isResizing) {
+                    isDrawing = false;
+                }
             });
 
             // Event listener for the reset button
@@ -439,6 +739,121 @@
             
             // Set initial active color button
             document.getElementById('red').classList.add('active');
+
+            // Event listener for image import
+            document.getElementById('imageInput').addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        const img = new Image();
+                        img.onload = () => {
+                            importedImage = img;
+                            // Show the overlay and convert buttons
+                            document.getElementById('overlayBtn').style.display = 'inline-block';
+                            document.getElementById('convertBtn').style.display = 'inline-block';
+                            
+                            // Reset image transformations
+                            imageScale = 1;
+                            imageOffsetX = 0;
+                            imageOffsetY = 0;
+                            
+                            // Auto-show overlay when image is imported
+                            isOverlayVisible = false; // Set to false so toggle works correctly
+                            toggleOverlay();
+                        };
+                        img.src = e.target.result;
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // Event listener for overlay toggle button
+            document.getElementById('overlayBtn').addEventListener('click', toggleOverlay);
+
+            // Event listener for convert to pixel art button
+            document.getElementById('convertBtn').addEventListener('click', () => {
+                if (importedImage) {
+                    convertImageToPixelArt(importedImage);
+                    // Hide overlay after conversion
+                    if (isOverlayVisible) {
+                        toggleOverlay();
+                    }
+                }
+            });
+
+            // Event listener for opacity slider
+            document.getElementById('opacitySlider').addEventListener('input', () => {
+                if (isOverlayVisible && importedImage) {
+                    drawOverlay();
+                }
+            });
+
+            // Event listener for resize button
+            document.getElementById('resizeBtn').addEventListener('click', toggleResizeMode);
+
+            // Event listeners for resize handles
+            document.getElementById('resizeHandleTopLeft').addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                isResizing = true;
+                resizeHandle = 'topLeft';
+                console.log('Top left resize started');
+            });
+
+            document.getElementById('resizeHandleBottomRight').addEventListener('mousedown', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                isResizing = true;
+                resizeHandle = 'bottomRight';
+                console.log('Bottom right resize started');
+            });
+
+            // Touch support for resize handles
+            document.getElementById('resizeHandleTopLeft').addEventListener('touchstart', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                isResizing = true;
+                resizeHandle = 'topLeft';
+            });
+
+            document.getElementById('resizeHandleBottomRight').addEventListener('touchstart', (event) => {
+                event.preventDefault();
+                event.stopPropagation();
+                isResizing = true;
+                resizeHandle = 'bottomRight';
+            });
+
+            // Global mouse events for resize functionality
+            document.addEventListener('mousemove', (event) => {
+                if (isResizing && isResizeMode) {
+                    event.preventDefault();
+                    handleResize(event);
+                }
+            });
+
+            document.addEventListener('mouseup', () => {
+                if (isResizing) {
+                    console.log('Resize ended');
+                    isResizing = false;
+                    resizeHandle = null;
+                }
+            });
+
+            // Global touch events for resize functionality
+            document.addEventListener('touchmove', (event) => {
+                if (isResizing && isResizeMode) {
+                    event.preventDefault();
+                    handleResize(event);
+                }
+            });
+
+            document.addEventListener('touchend', () => {
+                if (isResizing) {
+                    isResizing = false;
+                    resizeHandle = null;
+                }
+            });
 
             // --- Corrected logic start ---
             // Initialize the grid first
